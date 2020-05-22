@@ -7,6 +7,8 @@
 *.cmx
 *.cmxa
 *.cmxs
+*.conf
+*.coq
 *.glob
 *.ml.d
 *.ml4.d
