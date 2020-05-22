@@ -16,6 +16,7 @@ Definition nandb (b1:bool) (b2:bool) : bool:=
   end
 .
 
+
 Example test_nandb1: (nandb true false) = true.
 Proof.
   reflexivity.
@@ -51,6 +52,16 @@ Qed.
 
 Definition andb3 (b1:bool) (b2:bool) (b3:bool) : bool :=
   andb b1 (andb b2 b3).
+
+Fixpoint evenb (n:nat) : bool :=
+  match n with
+    | O => true
+    | S O => false
+    | S (S n') => evenb n'
+  end.
+
+Definition oddb (n:nat) : bool := negb (evenb n).
+
 Example test_andb31: (andb3 true true true) = true.
 Proof.
   unfold andb3, andb.
@@ -152,6 +163,7 @@ Definition ltb (n m : nat) : bool :=
 
 Notation "x <? y" := (ltb x y) (at level 70) : nat_scope.
 Notation "x =? y" := (eqb x y) (at level 70) : nat_scope.
+Notation "x <=? y" := (leb x y) (at level 70) : nat_scope.
 
 Example test_ltb1: (ltb 2 2) = false.
 Proof.
