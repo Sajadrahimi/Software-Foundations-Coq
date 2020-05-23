@@ -324,25 +324,35 @@ Qed.
 
 (*  
     standard (binary)
-        We can generalize our unary representation of natural numbers to the more efficient binary representation by treating a binary number as a sequence of constructors A and B (representing 0s and 1s), terminated by a Z. For comparison, in the unary representation, a number is a sequence of S constructors terminated by an O.
+        We can generalize our unary representation of natural numbers to the more- 
+        efficient binary representation by treating a binary number as a sequence-
+        of constructors A and B (representing 0s and 1s), terminated by a Z.
+        For comparison, in the unary representation, a number is a sequence of-
+        S constructors terminated by an O.
         For example:
-        decimal binary unary
-           0 Z O
-           1 B Z S O
-           2 A (B Z) S (S O)
-           3 B (B Z) S (S (S O))
-           4 A (A (B Z)) S (S (S (S O)))
-           5 B (A (B Z)) S (S (S (S (S O))))
-           6 A (B (B Z)) S (S (S (S (S (S O)))))
-           7 B (B (B Z)) S (S (S (S (S (S (S O))))))
-           8 A (A (A (B Z))) S (S (S (S (S (S (S (S O)))))))
-        Note that the low-order bit is on the left and the high-order bit is on the right -- the opposite of the way binary numbers are usually written. This choice makes them easier to manipulate.
+        decimal            binary                  unary
+           0                 Z                       O
+           1                B Z                     S O
+           2              A (B Z)                  S (S O)
+           3              B (B Z)                 S (S (S O))
+           4            A (A (B Z))              S (S (S (S O)))
+           5            B (A (B Z))             S (S (S (S (S O))))
+           6            A (B (B Z))            S (S (S (S (S (S O)))))
+           7            B (B (B Z))           S (S (S (S (S (S (S O))))))
+           8           A (A (A (B Z)))       S (S (S (S (S (S (S (S O)))))))
+
+        Note that the low-order bit is on the left and the high-order bit is on-
+        the right -- the opposite of the way binary numbers are usually written.
+        This choice makes them easier to manipulate.
 
         Inductive bin : Type :=
                   | Z
                   | A (n : bin)
                   | B (n : bin).
-        Complete the definitions below of an increment function incr for binary numbers, and a function bin_to_nat to convert binary numbers to unary numbers.  
+
+        Complete the definitions below of an increment function incr for-
+        binary numbers, and a function bin_to_nat to convert binary numbers-
+        to unary numbers.  
 *)
 
 
@@ -363,7 +373,8 @@ Fixpoint incr (m:bin) : bin :=
   end.
 
 (* When you add a 0 in front of a binary number, you're doubling it (remember the case in base 10)
-   And when you add a 1 in front of it, you're just basically adding a 0 in fron of it and increamenting the new number by 1 (which is equal to doubling it and then adding it with 1)
+   And when you add a 1 in front of it, you're just basically adding a 0 in fron of-
+  it and increamenting the new number by 1 (which is equal to doubling it and then adding it with 1)
 *)
 Fixpoint bin_to_nat (m:bin) : nat :=
   match m with
