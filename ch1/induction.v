@@ -418,7 +418,8 @@ Qed.
 
 
 
-(* Double of Z is Z and double of anything else is just itself with another zero in front of it *)
+(* Double of Z is Z and double of anything else is just itself with another-
+   zero in front of it *)
 Fixpoint double_bin (b:bin) : bin :=
   match b with 
   | Z => Z
@@ -426,7 +427,8 @@ Fixpoint double_bin (b:bin) : bin :=
   end.
 
 (* Normal of Z is Z,
-   Normal of anything in form of "n'0" is normal of n' with 0 in front of it (see double_bin definition)
+   Normal of anything in form of "n'0" is normal of n' with 0 in front of it-
+  (see double_bin definition)
    Normal of anything in form of "n'1" is normal of n' whit 1 in front of it
 
   This Definition can be rewrite without double, just using B as zero-concatinator
