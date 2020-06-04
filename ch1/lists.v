@@ -1,5 +1,5 @@
-From LF Require Export basics.
-
+From LF Require Export induction.
+Module NatList.
 
 Inductive natprod : Type :=
 | pair (n1 n2 : nat).
@@ -425,8 +425,410 @@ Proof.
   reflexivity.
 Qed.
 
+Theorem nil_app : forall l:natlist,
+  [] ++ l = l.
+Proof. reflexivity. Qed.
+
+Theorem tl_length_pred : forall l:natlist,
+  pred (length l) = length (tl l).
+Proof.
+  intros l. destruct l as [| n l'].
+  - (* l = nil *)
+    reflexivity.
+  - (* l = cons n l' *)
+    reflexivity.
+Qed.
+
+Theorem app_length : forall l1 l2 : natlist,
+  length (l1 ++ l2) = (length l1) + (length l2).
+Proof.
+  intros l1 l2. induction l1 as [| n l1' IHl1'].
+  - (* l1 = nil *)
+    reflexivity.
+  - (* l1 = cons *)
+    simpl. rewrite -> IHl1'. reflexivity.
+Qed.
 
 
+Theorem app_assoc : forall l1 l2 l3 : natlist,
+  (l1 ++ l2) ++ l3 = l1 ++ (l2 ++ l3).
+Proof.
+  intros l1 l2 l3. induction l1 as [| n l1' IHl1'].
+  - (* l1 = nil *)
+    reflexivity.
+  - (* l1 = cons n l1' *)
+    simpl. rewrite -> IHl1'. reflexivity.
+  Qed.
+
+
+Fixpoint rev (l:natlist) : natlist :=
+  match l with
+  | nil    => nil
+  | h :: t => rev t ++ [h]
+  end.
+
+Theorem rev_length : forall l : natlist,
+  length (rev l) = length l.
+Proof.
+  intros l. induction l as [| n l' IHl'].
+  - (* l = nil *)
+    reflexivity.
+  - (* l = cons *)
+    simpl. rewrite -> app_length.
+    simpl. rewrite -> IHl'.
+    rewrite plus_comm.
+    reflexivity.
+Qed.
+
+
+(** ** List Exercises, Part 1 *)
+
+(** **** Exercise: 3 stars, standard (list_exercises) 
+
+    More practice with lists: *)
+
+Theorem app_nil_r : forall l : natlist,
+  l ++ [] = l.
+Proof.
+  intros.
+  induction l.
+  reflexivity.
+  simpl.
+  rewrite IHl.
+  reflexivity.
+Qed.
+
+Theorem rev_app_distr: forall l1 l2 : natlist,
+  rev (l1 ++ l2) = rev l2 ++ rev l1.
+Proof.
+  intros.
+  induction l1 as [| n l1'].
+  simpl.
+  rewrite app_nil_r. reflexivity.
+  simpl.
+  rewrite -> IHl1'.
+  rewrite app_assoc.
+  reflexivity.
+Qed.
+
+Theorem rev_involutive : forall l : natlist,
+  rev (rev l) = l.
+Proof.
+  intros.
+  induction l.
+  reflexivity.
+  simpl.
+  rewrite rev_app_distr.
+  rewrite IHl.
+  reflexivity.
+Qed.
+
+(** There is a short solution to the next one.  If you find yourself
+    getting tangled up, step back and try to look for a simpler
+    way. *)
+
+Theorem app_assoc4 : forall l1 l2 l3 l4 : natlist,
+  l1 ++ (l2 ++ (l3 ++ l4)) = ((l1 ++ l2) ++ l3) ++ l4.
+Proof.
+  intros.
+  rewrite app_assoc.
+  rewrite app_assoc.
+  reflexivity.
+Qed.
+
+(** An exercise about your implementation of [nonzeros]: *)
+
+Lemma nonzeros_app : forall l1 l2 : natlist,
+  nonzeros (l1 ++ l2) = (nonzeros l1) ++ (nonzeros l2).
+Proof.
+  intros.
+  induction l1.
+  reflexivity.
+  destruct n as [| n']; simpl; rewrite IHl1; reflexivity.
+Qed.
+
+
+(** **** Exercise: 2 stars, standard (eqblist) 
+
+    Fill in the definition of [eqblist], which compares
+    lists of numbers for equality.  Prove that [eqblist l l]
+    yields [true] for every list [l]. *)
+
+Fixpoint eqblist (l1 l2 : natlist) : bool :=
+    match l1, l2 with
+    | [], [] => true
+    | h1 :: t1, h2 :: t2 => match (h1 =? h2) with
+                            | true => eqblist t1 t2
+                            | false => false
+                            end
+    | _, _ => false
+  end.
+
+Example test_eqblist1 :
+  (eqblist nil nil = true).
+Proof.
+  reflexivity.
+Qed.
+
+Example test_eqblist2 :
+  eqblist [1;2;3] [1;2;3] = true.
+Proof.
+  reflexivity.
+Qed.
+
+Example test_eqblist3 :
+  eqblist [1;2;3] [1;2;4] = false.
+Proof.
+  reflexivity.
+Qed.
+
+Lemma eqb_rfl :
+  forall n : nat,
+    true = (n =? n).
+Proof.
+  intros.
+  induction n.
+  reflexivity.
+  simpl.
+  assumption.
+Qed.
+
+Theorem eqblist_refl : forall l:natlist,
+  true = eqblist l l.
+Proof.
+  intros.
+  induction l.
+  reflexivity.
+  simpl.
+  rewrite <- eqb_rfl.
+  assumption.
+Qed.
+
+
+
+(** ** List Exercises, Part 2 *)
+
+(** Here are a couple of little theorems to prove about your
+    definitions about bags above. *)
+
+(** **** Exercise: 1 star, standard (count_member_nonzero)  *)
+Theorem count_member_nonzero : forall (s : bag),
+  1 <=? (count 1 (1 :: s)) = true.
+Proof.
+  intros.
+  reflexivity.
+Qed.
+
+(** The following lemma about [leb] might help you in the next exercise. *)
+
+Theorem leb_n_Sn : forall n,
+  n <=? (S n) = true.
+Proof.
+  intros n. induction n as [| n' IHn'].
+  - (* 0 *)
+    simpl.  reflexivity.
+  - (* S n' *)
+    simpl.  rewrite IHn'.  reflexivity.
+Qed.
+
+(** Before doing the next exercise, make sure you've filled in the
+   definition of [remove_one] above. *)
+(** **** Exercise: 3 stars, advanced (remove_does_not_increase_count)  *)
+Theorem remove_does_not_increase_count: forall (s : bag),
+  (count 0 (remove_one 0 s)) <=? (count 0 s) = true.
+Proof.
+  intros.
+  induction s.
+  reflexivity.
+  destruct n.
+  simpl.
+  rewrite leb_n_Sn.
+  reflexivity.
+  simpl.
+  assumption.
+Qed.
+
+
+
+(** **** Exercise: 3 stars, standard, optional (bag_count_sum) 
+
+    Write down an interesting theorem [bag_count_sum] about bags
+    involving the functions [count] and [sum], and prove it using
+    Coq.  (You may find that the difficulty of the proof depends on
+    how you defined [count]!) *)
+(* FILL IN HERE
+
+    [] *)
+
+(** **** Exercise: 4 stars, advanced (rev_injective) 
+
+    Prove that the [rev] function is injective -- that is,
+
+    forall (l1 l2 : natlist), rev l1 = rev l2 -> l1 = l2.
+
+    (There is a hard way and an easy way to do this.) *)
+Theorem rev_injective_r :
+  forall (l1 l2 : natlist), l1 = l2 -> rev l1 = rev l2.
+Proof.
+  intros.
+  rewrite -> H.
+  reflexivity.
+Qed.
+
+Theorem rev_injective:
+  forall (l1 l2 : natlist), rev l1 = rev l2 -> l1 = l2.
+Proof.
+  intros.
+  rewrite <- rev_involutive with (l := l1).
+  rewrite <- rev_involutive with (l := l2).
+  rewrite rev_injective_r with (l1 := (rev l1))(l2 := (rev l2)).
+  reflexivity.
+  assumption.
+Qed.
+
+
+
+Inductive natoption : Type :=
+  | Some (n : nat)
+  | None.
+
+
+Fixpoint nth_error (l:natlist) (n:nat) : natoption :=
+  match l with
+  | nil => None
+  | a :: l' => match n with
+               | O => Some a
+               | S n' => nth_error l' n'
+               end
+  end.
+
+
+Definition option_elim (d : nat) (o : natoption) : nat :=
+  match o with
+  | Some n' => n'
+  | None => d
+  end.
+
+
+(** **** Exercise: 2 stars, standard (hd_error) 
+
+    Using the same idea, fix the [hd] function from earlier so we don't
+    have to pass a default element for the [nil] case.  *)
+
+Definition hd_error (l : natlist) : natoption :=
+  match l with
+  | nil => None
+  | h :: t => Some h
+  end.
+
+Example test_hd_error1 : hd_error [] = None.
+Proof.
+  reflexivity.
+Qed.
+
+Example test_hd_error2 : hd_error [1] = Some 1.
+Proof.
+  reflexivity.
+Qed.
+
+Example test_hd_error3 : hd_error [5;6] = Some 5.
+Proof.
+  reflexivity.
+Qed.
+
+
+(** **** Exercise: 1 star, standard, optional (option_elim_hd) 
+
+    This exercise relates your new [hd_error] to the old [hd]. *)
+
+Theorem option_elim_hd :
+  forall (l:natlist) (default:nat),
+    hd default l = option_elim default (hd_error l).
+Proof.
+  intros.
+  destruct l; reflexivity.
+Qed.
+
+
+
+Inductive id : Type :=
+  | Id (n : nat).
+
+Definition eqb_id (x1 x2 : id) :=
+  match x1, x2 with
+  | Id n1, Id n2 => n1 =? n2
+  end.
+
+
+(** **** Exercise: 1 star, standard (eqb_id_refl)  *)
+Theorem eqb_id_refl : forall x, true = eqb_id x x.
+Proof.
+  intros.
+  induction x.
+  simpl.
+  rewrite <- eqb_rfl.
+  reflexivity.
+Qed.
+
+
+Module PartialMap.
+
+
+Inductive partial_map : Type :=
+  | empty
+  | record (i : id) (v : nat) (m : partial_map).
+
+Definition update (d : partial_map)
+                  (x : id) (value : nat)
+                  : partial_map :=
+  record x value d.
+
+Fixpoint find (x : id) (d : partial_map) : natoption :=
+  match d with
+  | empty         => None
+  | record y v d' => if eqb_id x y
+                     then Some v
+                     else find x d'
+  end.
+
+
+(** **** Exercise: 1 star, standard (update_eq)  *)
+Theorem update_eq :
+  forall (d : partial_map) (x : id) (v: nat),
+    find x (update d x v) = Some v.
+Proof.
+  intros.
+  simpl.
+  rewrite <- eqb_id_refl.
+  reflexivity.
+Qed.
+  
+
+(** **** Exercise: 1 star, standard (update_neq)  *)
+Theorem update_neq :
+  forall (d : partial_map) (x y : id) (o: nat),
+    eqb_id x y = false -> find x (update d y o) = find x d.
+Proof.
+  intros.
+  simpl.
+  rewrite H.
+  reflexivity.
+Qed.
+End PartialMap.
+
+(** **** Exercise: 2 stars, standard (baz_num_elts) 
+
+    Consider the following inductive definition: *)
+
+Inductive baz : Type :=
+  | Baz1 (x : baz)
+  | Baz2 (y : baz) (b : bool).
+
+(** How _many_ elements does the type [baz] have? (Explain in words,
+    in a comment.) *)
+(* Read This:
+  https://cs.stackexchange.com/questions/29365/baz-num-elts-exercise-from-software-foundations
+*)
 
 
 
