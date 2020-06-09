@@ -832,6 +832,7 @@ Inductive baz : Type :=
 
 
 
+End NatList.
 
 
 
