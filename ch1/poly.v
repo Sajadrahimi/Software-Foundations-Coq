@@ -378,7 +378,250 @@ Fixpoint fold {X Y: Type} (f: X->Y->Y) (l: list X) (b: Y)
 
 
 
+Module Exercises.
 
+(** **** Exercise: 2 stars, standard (fold_length) 
+
+    Many common functions on lists can be implemented in terms of
+    [fold].  For example, here is an alternative definition of [length]: *)
+
+Definition fold_length {X : Type} (l : list X) : nat :=
+  fold (fun _ n => S n) l 0.
+
+Example test_fold_length1 : fold_length [4;7;0] = 3.
+Proof. reflexivity. Qed.
+
+(** Prove the correctness of [fold_length].  (Hint: It may help to
+    know that [reflexivity] simplifies expressions a bit more
+    aggressively than [simpl] does -- i.e., you may find yourself in a
+    situation where [simpl] does nothing but [reflexivity] solves the
+    goal.) *)
+
+Theorem fold_length_correct : forall X (l : list X),
+  fold_length l = length l.
+Proof.
+  intros.
+  induction l.
+  reflexivity.
+  simpl.
+  rewrite <- IHl.
+  reflexivity.
+Qed.
+
+(** **** Exercise: 3 stars, standard (fold_map) 
+
+    We can also define [map] in terms of [fold].  Finish [fold_map]
+    below. *)
+
+Definition fold_map {X Y: Type} (f: X -> Y) (l : list X) : list Y :=
+  fold (fun h t => (f h) :: t) l [].
+
+
+(** Write down a theorem [fold_map_correct] in Coq stating that
+   [fold_map] is correct, and prove it.  (Hint: again, remember that
+   [reflexivity] simplifies expressions a bit more aggressively than
+   [simpl].) *)
+
+Theorem fold_map_correct:
+  forall (X Y: Type) (f : X -> Y) (l : list X),
+    fold_map f l = map f l.
+Proof.
+  intros.
+  induction l.
+  reflexivity.
+  simpl.
+  rewrite <- IHl.
+  reflexivity.
+Qed.
+
+(** **** Exercise: 2 stars, advanced (currying) 
+
+    In Coq, a function [f : A -> B -> C] really has the type [A
+    -> (B -> C)].  That is, if you give [f] a value of type [A], it
+    will give you function [f' : B -> C].  If you then give [f'] a
+    value of type [B], it will return a value of type [C].  This
+    allows for partial application, as in [plus3].  Processing a list
+    of arguments with functions that return functions is called
+    _currying_, in honor of the logician Haskell Curry.
+
+    Conversely, we can reinterpret the type [A -> B -> C] as [(A *
+    B) -> C].  This is called _uncurrying_.  With an uncurried binary
+    function, both arguments must be given at once as a pair; there is
+    no partial application. *)
+
+(** We can define currying as follows: *)
+
+Definition prod_curry {X Y Z : Type}
+  (f : X * Y -> Z) (x : X) (y : Y) : Z := f (x, y).
+
+(** As an exercise, define its inverse, [prod_uncurry].  Then prove
+    the theorems below to show that the two are inverses. *)
+
+Definition prod_uncurry {X Y Z : Type}
+  (f : X -> Y -> Z) (p : X * Y) : Z := (f (fst p)) (snd p).
+
+(** As a (trivial) example of the usefulness of currying, we can use it
+    to shorten one of the examples that we saw above: *)
+
+Example test_map1': map (plus 3) [2;0;2] = [5;3;5].
+Proof. reflexivity. Qed.
+
+(** Thought exercise: before running the following commands, can you
+    calculate the types of [prod_curry] and [prod_uncurry]? *)
+
+Check @prod_curry.
+Check @prod_uncurry.
+
+Theorem uncurry_curry : forall (X Y Z : Type)
+                        (f : X -> Y -> Z)
+                        x y,
+  prod_curry (prod_uncurry f) x y = f x y.
+Proof.
+  reflexivity.
+Qed.
+
+Theorem curry_uncurry : forall (X Y Z : Type)
+                        (f : (X * Y) -> Z) (p : X * Y),
+  prod_uncurry (prod_curry f) p = f p.
+Proof.
+  intros.
+  destruct p as [x y].
+  reflexivity.
+Qed.
+
+(** **** Exercise: 2 stars, advanced (nth_error_informal) 
+
+    Recall the definition of the [nth_error] function:
+
+   Fixpoint nth_error {X : Type} (l : list X) (n : nat) : option X :=
+     match l with
+     | [] => None
+     | a :: l' => if n =? O then Some a else nth_error l' (pred n)
+     end.
+
+   Write an informal proof of the following theorem:
+
+   forall X l n, length l = n -> @nth_error X l n = None
+*)
+
+(* FILL IN HERE *)
+
+
+(** The following exercises explore an alternative way of defining
+    natural numbers, using the so-called _Church numerals_, named
+    after mathematician Alonzo Church.  We can represent a natural
+    number [n] as a function that takes a function [f] as a parameter
+    and returns [f] iterated [n] times. *)
+
+Module Church.
+Definition cnat := forall X : Type, (X -> X) -> X -> X.
+
+(** Let's see how to write some numbers with this notation. Iterating
+    a function once should be the same as just applying it.  Thus: *)
+
+Definition one : cnat :=
+  fun (X : Type) (f : X -> X) (x : X) => f x.
+
+(** Similarly, [two] should apply [f] twice to its argument: *)
+
+Definition two : cnat :=
+  fun (X : Type) (f : X -> X) (x : X) => f (f x).
+
+(** Defining [zero] is somewhat trickier: how can we "apply a function
+    zero times"?  The answer is actually simple: just return the
+    argument untouched. *)
+
+Definition zero : cnat :=
+  fun (X : Type) (f : X -> X) (x : X) => x.
+
+(** More generally, a number [n] can be written as [fun X f x => f (f
+    ... (f x) ...)], with [n] occurrences of [f].  Notice in
+    particular how the [doit3times] function we've defined previously
+    is actually just the Church representation of [3]. *)
+
+Definition doit3times {X:Type} (f:X->X) (n:X) : X :=
+  f (f (f n)).
+
+Definition three : cnat := @doit3times.
+
+(** Complete the definitions of the following functions. Make sure
+    that the corresponding unit tests pass by proving them with
+    [reflexivity]. *)
+
+(** **** Exercise: 1 star, advanced (church_succ)  *)
+
+(** Successor of a natural number: given a Church numeral [n],
+    the successor [succ n] is a function that iterates its
+    argument once more than [n]. *)
+Definition succ (n : cnat) : cnat :=
+  fun (X : Type) (f : X -> X) (x: X) => f (n _ f x).
+
+Example succ_1 : succ zero = one.
+Proof. reflexivity. Qed.
+
+Example succ_2 : succ one = two.
+Proof. reflexivity. Qed.
+
+Example succ_3 : succ two = three.
+Proof. reflexivity. Qed.
+
+(** **** Exercise: 1 star, advanced (church_plus)  *)
+
+(** Addition of two natural numbers: *)
+Definition plus (n m : cnat) : cnat :=
+  fun (X : Type) (f : X -> X) (x: X) => (n _ f) (m _ f x).
+
+Example plus_1 : plus zero one = one.
+Proof. reflexivity. Qed.
+
+Example plus_2 : plus two three = plus three two.
+Proof. reflexivity. Qed.
+
+Example plus_3 :
+  plus (plus two two) three = plus one (plus three three).
+Proof. reflexivity. Qed.
+
+
+(** **** Exercise: 2 stars, advanced (church_mult)  *)
+
+(** Multiplication: *)
+Definition mult (n m : cnat) : cnat :=
+  fun (X : Type) (f : X -> X) (x : X) => n _ (m _ f) x.
+
+Example mult_1 : mult one one = one.
+Proof. reflexivity. Qed.
+
+Example mult_2 : mult zero (plus three three) = zero.
+Proof. reflexivity. Qed.
+
+Example mult_3 : mult two three = plus three three.
+Proof. reflexivity. Qed.
+
+
+(** **** Exercise: 2 stars, advanced (church_exp)  *)
+
+(** Exponentiation: *)
+
+(** (_Hint_: Polymorphism plays a crucial role here.  However,
+    choosing the right type to iterate over can be tricky.  If you hit
+    a "Universe inconsistency" error, try iterating over a different
+    type.  Iterating over [cnat] itself is usually problematic.) *)
+
+Definition exp (n m : cnat) : cnat :=
+  fun (X : Type) (f : X -> X) (x : X) => (m (X -> X) (n X)) f x.
+
+Example exp_1 : exp two two = plus two two.
+Proof. reflexivity. Qed.
+
+Example exp_2 : exp three zero = one.
+Proof. reflexivity. Qed.
+
+Example exp_3 : exp three two = plus (mult two (mult two two)) one.
+Proof. reflexivity. Qed.
+
+End Church.
+
+End Exercises.
 
 
 
