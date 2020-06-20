@@ -815,8 +815,39 @@ Theorem forallb_true_iff : forall X test (l : list X),
    forallb test l = true <-> All (fun x => test x = true) l.
 Proof.
   intros X test.
-  induction l.
-  
+  induction l as [| h t].
+  - (* l = [] *)
+    split.
+    + (* -> *)
+      intros.
+      reflexivity.
+    + (* <- *)
+      intros.
+      reflexivity.
+  - (* l = h :: t *)
+    split.
+    + (* -> *)
+      intros.
+      simpl.
+      split.
+      * simpl in H.
+        apply andb_true_iff in H.
+        destruct H as [H1 H2].
+        apply H1.
+      * apply IHt.
+        simpl in H.
+        apply andb_true_iff in H.
+        destruct H as [H1 H2].
+        apply H2.
+    + (* <- *)
+      intros.
+      simpl.
+      apply andb_true_iff.
+      split.
+        * apply H.
+        * apply IHt. apply H.
+Qed.
+
 (** (Ungraded thought question) Are there any important properties of
     the function [forallb] which are not captured by this
     specification? *)
