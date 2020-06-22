@@ -857,11 +857,201 @@ Qed.
     [] *)
 
 
+Definition excluded_middle := forall P : Prop,
+  P \/ ~ P.
 
 
+(** **** Exercise: 3 stars, standard (excluded_middle_irrefutable) 
+
+    Proving the consistency of Coq with the general excluded middle
+    axiom requires complicated reasoning that cannot be carried out
+    within Coq itself.  However, the following theorem implies that it
+    is always safe to assume a decidability axiom (i.e., an instance
+    of excluded middle) for any _particular_ Prop [P].  Why?  Because
+    we cannot prove the negation of such an axiom.  If we could, we
+    would have both [~ (P \/ ~P)] and [~ ~ (P \/ ~P)] (since [P]
+    implies [~ ~ P], by lemma [double_neg], which we proved above),
+    which would be a  contradiction.  But since we can't, it is safe
+    to add [P \/ ~P] as an axiom. *)
 
 
+Theorem excluded_middle_irrefutable: forall (P:Prop),
+  ~ ~ (P \/ ~ P).
+Proof.
+  intros P.
+  unfold not.
+  intros.
+  apply H.
+  right. intros. apply H.
+  left. apply H0.
+Qed.
 
+(** **** Exercise: 3 stars, advanced (not_exists_dist) 
+
+    It is a theorem of classical logic that the following two
+    assertions are equivalent:
+
+    ~ (exists x, ~ P x)
+    forall x, P x
+
+    The [dist_not_exists] theorem above proves one side of this
+    equivalence. Interestingly, the other direction cannot be proved
+    in constructive logic. Your job is to show that it is implied by
+    the excluded middle. *)
+
+Theorem not_exists_dist :
+  excluded_middle ->
+  forall (X:Type) (P : X -> Prop),
+    ~ (exists x, ~ P x) -> (forall x, P x).
+Proof.
+  unfold excluded_middle.
+  intros H X P.
+  intros E x.
+  assert (H1: P x \/ ~ P x). { apply H. }
+  destruct H1 as [H2 | H3].
+  - apply H2.
+  - apply ex_falso_quodlibet.
+    apply E. exists x. apply H3.
+Qed.
+
+(** **** Exercise: 5 stars, standard, optional (classical_axioms) 
+
+    For those who like a challenge, here is an exercise taken from the
+    Coq'Art book by Bertot and Casteran (p. 123).  Each of the
+    following four statements, together with [excluded_middle], can be
+    considered as characterizing classical logic.  We can't prove any
+    of them in Coq, but we can consistently add any one of them as an
+    axiom if we wish to work in classical logic.
+
+    Prove that all five propositions (these four plus [excluded_middle])
+    are equivalent.
+
+    Hint: Rather than considering all pairs of statements pairwise,
+    prove a single circular chain of implications that connects them
+    all.
+*)
+
+Definition peirce := forall P Q: Prop,
+  ((P->Q)->P)->P.
+
+Definition double_negation_elimination := forall P:Prop,
+  ~~P -> P.
+
+Definition de_morgan_not_and_not := forall P Q:Prop,
+  ~(~P /\ ~Q) -> P\/Q.
+
+Definition implies_to_or := forall P Q:Prop,
+  (P->Q) -> (~P\/Q).
+
+
+Theorem EXM__de_morgan_not_and_not:
+  excluded_middle <-> de_morgan_not_and_not.
+Proof.
+  unfold excluded_middle.
+  unfold  de_morgan_not_and_not.
+  split.
+  - (* -> *)
+    intros.
+    unfold not in H0.
+    destruct (H P).
+      + (* P *) left. apply H1.
+      + (* ~P *)
+        destruct (H Q).
+          * (* Q *) right. apply H2.
+          * (* ~Q *) apply ex_falso_quodlibet. apply H0. split. apply H1. apply H2.
+  - (* <- *)
+    intros.
+    apply H.
+    unfold not.
+    intros. apply H0. intro. apply H0 in H1. apply H1.
+Qed.
+
+Theorem EXM__implies_to_or:
+  excluded_middle <-> implies_to_or.
+Proof.
+  unfold excluded_middle.
+  unfold implies_to_or.
+  split.
+  - (* -> *)
+    intros.
+    destruct (H P).
+      + right. apply H0 in H1. apply H1.
+      + left. apply H1.
+  - (* <- *)
+    intros.
+    apply or_commut.
+    apply H.
+    intros HP. apply HP.
+Qed.
+
+Theorem pierce__double_negation_elimination: 
+  peirce <-> double_negation_elimination.
+Proof.
+  unfold peirce.
+  unfold double_negation_elimination.
+  split.
+  - (* -> *)
+    intros.
+    unfold not in H0. apply H with (Q:=False).
+    intros. apply H0 in H1. inversion H1.
+  - (* <- *)
+    intros.
+    apply H.
+    unfold not. intros.
+    apply H1 in H0.
+    + apply H0.
+    + intro. apply H1 in H2. inversion H2.
+Qed.
+
+Theorem double_negation_elimination__EXM:
+  double_negation_elimination <-> excluded_middle.
+Proof.
+  unfold excluded_middle.
+  unfold double_negation_elimination.
+  split.
+  - (* -> *)
+    intros. apply H.
+    unfold not. intros.
+    apply H0.
+    right.
+    intros.
+    destruct H0. left. apply H1.
+  - (* <- *)
+    intros. unfold not in H0.
+    destruct (H P).
+      + apply H1.
+      + unfold not in H1. apply H0 in H1. inversion H1.
+Qed.
+
+Theorem de_morgan_not_and_not__implies_to_or:
+  de_morgan_not_and_not <-> implies_to_or.
+Proof.
+  unfold de_morgan_not_and_not.
+  unfold implies_to_or.
+  split.
+  - (* -> *)
+    intros. apply EXM__de_morgan_not_and_not.
+      + (* Prove excluded_middle *)
+        unfold excluded_middle.
+        intros.
+        apply H.
+        unfold not.
+        intros [H1 H2].
+        apply H2. apply H1.
+      + (* Prove ~ (~ ~ P /\ ~ Q) *)
+        unfold not.
+        intros [H1 H2].
+        apply H1.
+        intro.
+        apply H2.
+        apply H0.
+        apply H3.
+  - (* <- *)
+    intros.
+    apply EXM__de_morgan_not_and_not. unfold excluded_middle. intros.
+    + apply or_comm. apply H. intro. apply H1.
+    + apply H0.
+Qed.
 
 
 
