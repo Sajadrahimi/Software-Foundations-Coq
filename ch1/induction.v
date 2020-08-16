@@ -33,16 +33,13 @@ Theorem plus_comm : forall n m : nat,
 Proof.
   intros.
   induction n.
-  simpl.
-  induction m.
-  reflexivity.
-  simpl.
-  rewrite <- IHm.
-  reflexivity.
-  simpl.
-  rewrite -> IHn.
-  rewrite -> plus_n_Sm.
-  reflexivity.
+  - simpl.
+    rewrite <- plus_n_O.
+    reflexivity.
+  - simpl.
+    rewrite <- plus_n_Sm.
+    rewrite <- IHn.
+    reflexivity.
 Qed.
   
 

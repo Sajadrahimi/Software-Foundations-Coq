@@ -157,13 +157,15 @@ Fixpoint eqb (n m : nat) : bool :=
             end
   end.
 
-(* We define "lower than" as "n <= m and n is not equal to m" *)
-Definition ltb (n m : nat) : bool :=
-  (leb n m) && (negb (eqb n m )).
 
-Notation "x <? y" := (ltb x y) (at level 70) : nat_scope.
 Notation "x =? y" := (eqb x y) (at level 70) : nat_scope.
 Notation "x <=? y" := (leb x y) (at level 70) : nat_scope.
+
+(* We define "lower than" as "n <= m and n is not equal to m" *)
+Definition ltb (n m : nat) : bool :=
+  ((S n) <=? m).
+
+Notation "x <? y" := (ltb x y) (at level 70) : nat_scope.
 
 Example test_ltb1: (ltb 2 2) = false.
 Proof.
@@ -272,7 +274,7 @@ Theorem identity_fn_applied_twice :
 Proof.
   intros.
   (* For each case of b, apply H (:= f b = b) twice and verify using reflexivity*)
-  destruct b; rewrite -> H; rewrite -> H; reflexivity.
+  rewrite -> H; rewrite -> H; reflexivity.
 Qed.
   
 
@@ -308,15 +310,14 @@ Qed.
 Theorem andb_eq_orb :
   forall (b c : bool), andb b c = orb b c -> b = c.
 Proof.
-  destruct b,c.
-  intro H.
-  reflexivity.
-  intro H.
-  inversion H.
-  intro H.
-  inversion H.
-  intro H.
-  reflexivity.
+  intros b c.
+  destruct b eqn:Eb.
+    - destruct c eqn:Ec.
+      + simpl. intro. reflexivity.
+      + simpl. intro. rewrite H. reflexivity.
+    - destruct c eqn:Ec.
+      + simpl. intro. rewrite H. reflexivity.
+      + simpl. intro. reflexivity.
 Qed.
 
 
