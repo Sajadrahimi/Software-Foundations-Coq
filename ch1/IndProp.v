@@ -399,11 +399,6 @@ Inductive R : nat -> nat -> nat -> Prop :=
       would the set of provable propositions change?  Briefly (1
       sentence) explain your answer. *)
 
-(* FILL IN HERE *)
-
-(* Do not modify the following line: *)
-Definition manual_grade_for_R_provability : option (nat*string) := None.
-(** [] *)
 
 (** **** Exercise: 3 stars, standard, optional (R_fact) 
 
@@ -411,15 +406,32 @@ Definition manual_grade_for_R_provability : option (nat*string) := None.
     Figure out which function; then state and prove this equivalence
     in Coq? *)
 
-Definition fR : nat -> nat -> nat
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
+Definition fR : nat -> nat -> nat:=
+  (fun (x y : nat) => (x + y)).
 
 Theorem R_equiv_fR : forall m n o, R m n o <-> fR m n = o.
 Proof.
-(* FILL IN HERE *) Admitted.
-(** [] *)
-
-End R.
+  intros.
+  split.
+  - (* -> *)
+    intro.
+    induction H; unfold fR.
+      + reflexivity.
+      + simpl. f_equal. apply IHR.
+      + rewrite plus_comm. simpl. f_equal. rewrite plus_comm. apply IHR.
+      + unfold fR in IHR. simpl in IHR. inversion IHR.
+        rewrite <- plus_n_Sm in H1. inversion H1. reflexivity.
+      + unfold fR in IHR. rewrite plus_comm in IHR. assumption.
+  - (* <- *)
+    intro.
+    induction H. induction n.
+      + induction m.
+        * simpl. apply c1.
+        * simpl. apply c2. apply IHm.
+      + induction m.
+        * simpl. apply c3. apply IHn.
+        * simpl. apply c2. apply IHm. apply c3 in IHn. apply c4. apply IHn.
+Qed.
 
 (** **** Exercise: 2 stars, advanced (subsequence) 
 
@@ -459,26 +471,44 @@ End R.
       Hint: choose your induction carefully! *)
 
 Inductive subseq : list nat -> list nat -> Prop :=
-(* FILL IN HERE *)
+  | sub_nil : forall l, subseq [] l
+  | sub_cons1 : forall k l n, (subseq k l) -> (subseq k (n :: l))
+  | sub_cons2 : forall k l n, (subseq k l) -> (subseq (n::k) (n::l))
 .
 
 Theorem subseq_refl : forall (l : list nat), subseq l l.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction l.
+  - apply sub_nil.
+  - apply sub_cons2. apply IHl.
+Qed.
 
 Theorem subseq_app : forall (l1 l2 l3 : list nat),
   subseq l1 l2 ->
   subseq l1 (l2 ++ l3).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction H.
+  - apply sub_nil.
+  - simpl. apply sub_cons1. apply IHsubseq.
+  - simpl. apply sub_cons2. apply IHsubseq.
+Qed.
 
 Theorem subseq_trans : forall (l1 l2 l3 : list nat),
   subseq l1 l2 ->
   subseq l2 l3 ->
   subseq l1 l3.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  intros l1 l2 l3 H1 H2. generalize dependent H1. generalize dependent l1.
+  induction H2; intros.
+  - inversion H1. apply sub_nil.
+  - apply sub_cons1. apply IHsubseq. apply H1.
+  - inversion H1.
+    + apply sub_nil.
+    + apply sub_cons1. apply IHsubseq. apply H3.
+    + apply sub_cons2. apply IHsubseq. apply H3.
+Qed.
 
 (** **** Exercise: 2 stars, standard, optional (R_provability2) 
 
