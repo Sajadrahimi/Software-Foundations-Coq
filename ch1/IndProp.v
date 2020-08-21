@@ -292,13 +292,10 @@ Theorem add_le_cases : forall n m p q,
     n + m <= p + q -> n <= p \/ m <= q.
 Proof.
   intros n m p q H.
-  induction n.
+  induction n as [|n'].
   - left. apply O_le_n.
-  - simpl in H. apply le_S in H. apply Sn_le_Sm__n_le_m in H. apply IHn in H as [H1 | H2].
-    + left.
-      induction p.
-      * Admitted.
-
+  - simpl in H. apply le_S in H. apply Sn_le_Sm__n_le_m in H. apply IHn' in H as [H1 | H2].
+    + left. Admitted.
 
 Theorem lt_S : forall n m,
   n < m ->
@@ -528,4 +525,255 @@ Qed.
 (* FILL IN HERE
 
     [] *)
+
+
+
+Inductive reg_exp (T : Type) : Type :=
+  | EmptySet
+  | EmptyStr
+  | Char (t : T)
+  | App (r1 r2 : reg_exp T)
+  | Union (r1 r2 : reg_exp T)
+  | Star (r : reg_exp T).
+
+Arguments EmptySet {T}.
+Arguments EmptyStr {T}.
+Arguments Char {T} _.
+Arguments App {T} _ _.
+Arguments Union {T} _ _.
+Arguments Star {T} _.
+
+Reserved Notation "s =~ re" (at level 80).
+
+Inductive exp_match {T} : list T -> reg_exp T -> Prop :=
+  | MEmpty : [] =~ EmptyStr
+  | MChar x : [x] =~ (Char x)
+  | MApp s1 re1 s2 re2
+             (H1 : s1 =~ re1)
+             (H2 : s2 =~ re2)
+           : (s1 ++ s2) =~ (App re1 re2)
+  | MUnionL s1 re1 re2
+                (H1 : s1 =~ re1)
+              : s1 =~ (Union re1 re2)
+  | MUnionR re1 s2 re2
+                (H2 : s2 =~ re2)
+              : s2 =~ (Union re1 re2)
+  | MStar0 re : [] =~ (Star re)
+  | MStarApp s1 s2 re
+                 (H1 : s1 =~ re)
+                 (H2 : s2 =~ (Star re))
+               : (s1 ++ s2) =~ (Star re)
+  where "s =~ re" := (exp_match s re).
+
+Fixpoint reg_exp_of_list {T} (l : list T) :=
+  match l with
+  | [] => EmptyStr
+  | x :: l' => App (Char x) (reg_exp_of_list l')
+  end.
+
+Lemma MStar1 :
+  forall T s (re : reg_exp T) ,
+    s =~ re ->
+    s =~ Star re.
+Proof.
+  intros T s re H.
+  rewrite <- (app_nil_r _ s).
+  apply (MStarApp s [] re).
+  - apply H.
+  - apply MStar0.
+Qed.
+
+
+(** **** Exercise: 3 stars, standard (exp_match_ex1) 
+
+    The following lemmas show that the informal matching rules given
+    at the beginning of the chapter can be obtained from the formal
+    inductive definition. *)
+
+Lemma empty_is_empty : forall T (s : list T),
+  ~ (s =~ EmptySet).
+Proof.
+  intros T s H.
+  inversion H.
+Qed.
+
+Lemma MUnion' : forall T (s : list T) (re1 re2 : reg_exp T),
+  s =~ re1 \/ s =~ re2 ->
+  s =~ Union re1 re2.
+Proof.
+  intros T s re1 re2 H.
+  destruct H.
+  - apply MUnionL. apply H.
+  - apply MUnionR. apply H.
+Qed.
+
+(** The next lemma is stated in terms of the [fold] function from the
+    [Poly] chapter: If [ss : list (list T)] represents a sequence of
+    strings [s1, ..., sn], then [fold app ss []] is the result of
+    concatenating them all together. *)
+
+Lemma MStar' : forall T (ss : list (list T)) (re : reg_exp T),
+  (forall s, In s ss -> s =~ re) ->
+  fold app ss [] =~ Star re.
+Proof.
+  intros T ss re H.
+  induction ss as [|ss'].
+  - simpl. apply MStar0.
+  - simpl. apply MStarApp.
+    + apply H. simpl. left. reflexivity.
+    + apply IHss. intros. apply H. simpl. right. apply H0.
+Qed.
+
+(** **** Exercise: 4 stars, standard, optional (reg_exp_of_list_spec) 
+
+    Prove that [reg_exp_of_list] satisfies the following
+    specification: *)
+Lemma add_to_app: forall S (x:S) y, [x]++y = x::y.
+Proof.
+  intros S x y. simpl. reflexivity.
+Qed.
+
+Lemma reg_exp_of_list_spec : forall T (s1 s2 : list T),
+  s1 =~ reg_exp_of_list s2 <-> s1 = s2.
+Proof.
+  intros T s1 s2. 
+  generalize dependent s1.
+  induction s2 as [|h t].
+  - (* s2 = [] *)
+    split. 
+    + intros H. simpl in H. inversion H. reflexivity.
+    + intros H. simpl. rewrite H. apply MEmpty.
+  - (* s2 = h::t *)
+    intros s1. split. 
+    + intros H. simpl in H. inversion H. 
+      inversion H3. simpl. 
+      rewrite (IHt s2) in H4. rewrite H4. reflexivity.
+    + intros H. simpl. rewrite H.
+      rewrite <- add_to_app. apply MApp.
+      * apply MChar.
+      * apply IHt. reflexivity.
+Qed.
+
+
+Fixpoint re_chars {T} (re : reg_exp T) : list T :=
+  match re with
+  | EmptySet => []
+  | EmptyStr => []
+  | Char x => [x]
+  | App re1 re2 => re_chars re1 ++ re_chars re2
+  | Union re1 re2 => re_chars re1 ++ re_chars re2
+  | Star re => re_chars re
+  end.
+
+Theorem in_re_match : forall T (s : list T) (re : reg_exp T) (x : T),
+  s =~ re ->
+  In x s ->
+  In x (re_chars re).
+Proof.
+  intros T s re x Hmatch Hin.
+  induction Hmatch
+    as [| x'
+        | s1 re1 s2 re2 Hmatch1 IH1 Hmatch2 IH2
+        | s1 re1 re2 Hmatch IH | re1 s2 re2 Hmatch IH
+        | re | s1 s2 re Hmatch1 IH1 Hmatch2 IH2].
+  - (* MEmpty *)
+    simpl in Hin. destruct Hin.
+  - (* MChar *)
+    simpl. simpl in Hin.
+    apply Hin.
+  - (* MApp *)
+    simpl.
+
+(** Something interesting happens in the [MApp] case.  We obtain
+    _two_ induction hypotheses: One that applies when [x] occurs in
+    [s1] (which matches [re1]), and a second one that applies when [x]
+    occurs in [s2] (which matches [re2]). *)
+
+    rewrite In_app_iff in *.
+    destruct Hin as [Hin | Hin].
+    + (* In x s1 *)
+      left. apply (IH1 Hin).
+    + (* In x s2 *)
+      right. apply (IH2 Hin).
+  - (* MUnionL *)
+    simpl. rewrite In_app_iff.
+    left. apply (IH Hin).
+  - (* MUnionR *)
+    simpl. rewrite In_app_iff.
+    right. apply (IH Hin).
+  - (* MStar0 *)
+    destruct Hin.
+  - (* MStarApp *)
+    simpl.
+
+(** Here again we get two induction hypotheses, and they illustrate
+    why we need induction on evidence for [exp_match], rather than
+    induction on the regular expression [re]: The latter would only
+    provide an induction hypothesis for strings that match [re], which
+    would not allow us to reason about the case [In x s2]. *)
+
+    rewrite In_app_iff in Hin.
+    destruct Hin as [Hin | Hin].
+    + (* In x s1 *)
+      apply (IH1 Hin).
+    + (* In x s2 *)
+      apply (IH2 Hin).
+Qed.
+
+
+
+
+(** **** Exercise: 4 stars, standard (re_not_empty) 
+
+    Write a recursive function [re_not_empty] that tests whether a
+    regular expression matches some string. Prove that your function
+    is correct. *)
+
+Fixpoint re_not_empty {T : Type} (re : reg_exp T) : bool :=
+  match re with
+    | EmptySet => false
+    | EmptyStr => true
+    | Char _ => true
+    | App re1 re2 => andb (re_not_empty re1) (re_not_empty re2)
+    | Union re1 re2 => orb (re_not_empty re1) (re_not_empty re2)
+    | Star re1 => true
+  end.
+
+Lemma re_not_empty_correct : forall T (re : reg_exp T),
+  (exists s, s =~ re) <-> re_not_empty re = true.
+Proof.
+  intros T re.
+  split.
+  - intros [s H].
+    induction H.
+    + (* EmptyStr *) reflexivity.
+    + (* Char *) reflexivity.
+    + (* App *) simpl. rewrite IHexp_match1. rewrite IHexp_match2. reflexivity.
+    + (* UnionL *) simpl. rewrite IHexp_match. reflexivity.
+    + (* UnionR *) simpl. rewrite IHexp_match. destruct (re_not_empty re1); reflexivity.
+    + (* Star0 *) reflexivity.
+    + (* StarApp *) reflexivity.
+  - intros H.
+    induction re.
+    + (* EmptySet *) discriminate H.
+    + (* EmptyStr *) exists []. apply MEmpty.
+    + (* Char *) exists [t]. apply MChar.
+    + (* App *) simpl in H. rewrite andb_true_iff in H. destruct H as [H1 H2].
+      apply IHre1 in H1. destruct H1 as [s1 H1].
+      apply IHre2 in H2. destruct H2 as [s2 H2].
+      exists (s1++s2). apply MApp; assumption.
+    + (* Union *) simpl in H. rewrite orb_true_iff in H.
+      destruct H as [H1 | H2].
+      * apply IHre1 in H1. destruct H1. exists x. apply MUnionL. apply H.
+      * apply IHre2 in H2. destruct H2. exists x. apply MUnionR. apply H.
+    + (* Start *) exists []. apply MStar0.
+Qed.
+
+
+
+
+
+
+
+
 
