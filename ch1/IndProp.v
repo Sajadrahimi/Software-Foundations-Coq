@@ -770,7 +770,335 @@ Proof.
 Qed.
 
 
+(** **** Exercise: 4 stars, standard, optional (exp_match_ex2)  *)
 
+(** The [MStar''] lemma below (combined with its converse, the
+    [MStar'] exercise above), shows that our definition of [exp_match]
+    for [Star] is equivalent to the informal one given previously. *)
+
+Lemma MStar'' : forall T (s : list T) (re : reg_exp T),
+  s =~ Star re ->
+  exists ss : list (list T),
+    s = fold app ss []
+    /\ forall s', In s' ss -> s' =~ re.
+Proof.
+  intros T s re H.
+  remember (Star re) as re'.
+  induction H
+    as [|x'|s1 re1 s2 re2 Hmatch1 IH1 Hmatch2 IH2
+        |s1 re1 re2 Hmatch IH|re1 s2 re2 Hmatch IH
+        |re''|s1 s2 re'' Hmatch1 IH1 Hmatch2 IH2].
+  - inversion Heqre'.
+  - inversion Heqre'.
+  - inversion Heqre'.
+  - inversion Heqre'.
+  - inversion Heqre'.
+  - (* Star 0 *)
+    exists []. split.
+    + reflexivity. 
+    + intros s' H. inversion H.
+  - (* Star  *)
+    destruct (IH2 Heqre') as [ss' [L R]].
+    exists (s1::ss'). split.
+    + simpl. rewrite <- L. reflexivity.
+    + intros s' H. destruct H.
+      * rewrite <- H. inversion Heqre'. rewrite H1 in Hmatch1. apply Hmatch1.
+      * apply R. apply H.
+Qed.
+
+
+
+
+(** **** Exercise: 5 stars, advanced (weak_pumping) 
+
+    One of the first really interesting theorems in the theory of
+    regular expressions is the so-called _pumping lemma_, which
+    states, informally, that any sufficiently long string [s] matching
+    a regular expression [re] can be "pumped" by repeating some middle
+    section of [s] an arbitrary number of times to produce a new
+    string also matching [re].  (For the sake of simplicity in this
+    exercise, we consider a slightly weaker theorem than is usually
+    stated in courses on automata theory.)
+
+    To get started, we need to define "sufficiently long."  Since we
+    are working in a constructive logic, we actually need to be able
+    to calculate, for each regular expression [re], the minimum length
+    for strings [s] to guarantee "pumpability." *)
+
+Module Pumping.
+
+Fixpoint pumping_constant {T} (re : reg_exp T) : nat :=
+  match re with
+  | EmptySet => 1
+  | EmptyStr => 1
+  | Char _ => 2
+  | App re1 re2 =>
+      pumping_constant re1 + pumping_constant re2
+  | Union re1 re2 =>
+      pumping_constant re1 + pumping_constant re2
+  | Star r => pumping_constant r
+  end.
+
+(** You may find these lemmas about the pumping constant useful when
+    proving the pumping lemma below. *)
+
+Lemma pumping_constant_ge_1 :
+  forall T (re : reg_exp T),
+    1 <= pumping_constant re.
+Proof.
+  intros T re. induction re.
+  - (* Emptyset *)
+    apply le_n.
+  - (* EmptyStr *)
+    apply le_n.
+  - (* Char *)
+    apply le_S. apply le_n.
+  - (* App *)
+    simpl.
+    apply le_trans with (n:=pumping_constant re1).
+    apply IHre1. apply le_plus_l.
+  - (* Union *)
+    simpl.
+    apply le_trans with (n:=pumping_constant re1).
+    apply IHre1. apply le_plus_l.
+  - (* Star *)
+    simpl. apply IHre.
+Qed.
+
+Lemma pumping_constant_0_false :
+  forall T (re : reg_exp T),
+    pumping_constant re = 0 -> False.
+Proof.
+  intros T re H.
+  assert (Hp1 : 1 <= pumping_constant re).
+  { apply pumping_constant_ge_1. }
+  inversion Hp1.
+  - rewrite H in H2. discriminate H2.
+  - rewrite H in H0. discriminate H0.
+Qed.
+
+(** Next, it is useful to define an auxiliary function that repeats a
+    string (appends it to itself) some number of times. *)
+
+Fixpoint napp {T} (n : nat) (l : list T) : list T :=
+  match n with
+  | 0 => []
+  | S n' => l ++ napp n' l
+  end.
+
+(** This auxiliary lemma might also be useful in your proof of the
+    pumping lemma. *)
+
+Lemma napp_plus: forall T (n m : nat) (l : list T),
+  napp (n + m) l = napp n l ++ napp m l.
+Proof.
+  intros T n m l.
+  induction n as [|n IHn].
+  - reflexivity.
+  - simpl. rewrite IHn, app_assoc. reflexivity.
+Qed.
+
+Lemma napp_star :
+  forall T m s1 s2 (re : reg_exp T),
+    s1 =~ re -> s2 =~ Star re ->
+    napp m s1 ++ s2 =~ Star re.
+Proof.
+  intros T m s1 s2 re Hs1 Hs2.
+  induction m.
+  - simpl. apply Hs2.
+  - simpl. rewrite <- app_assoc.
+    apply MStarApp.
+    + apply Hs1.
+    + apply IHm.
+Qed.
+
+
+(** The (weak) pumping lemma itself says that, if [s =~ re] and if the
+    length of [s] is at least the pumping constant of [re], then [s]
+    can be split into three substrings [s1 ++ s2 ++ s3] in such a way
+    that [s2] can be repeated any number of times and the result, when
+    combined with [s1] and [s3] will still match [re].  Since [s2] is
+    also guaranteed not to be the empty string, this gives us
+    a (constructive!) way to generate strings matching [re] that are
+    as long as we like. *)
+
+Lemma plus_le_one: forall n m,
+      1 <= n + m -> 1 <= n \/ 1 <= m.
+Proof.
+  intros.
+  generalize dependent n.
+  induction m.
+  - intros n H.  left. replace n with (n + 0).
+    + assumption.
+    + rewrite plus_n_O. reflexivity.
+  - intros n H.
+    right.
+    apply n_le_m__Sn_le_Sm.
+    apply O_le_n.
+Qed.
+
+Lemma length_le_one__neq_empty: forall (X:Type) (s:list X),
+      1 <= length s -> s <> [].
+Proof.
+  intros.
+  induction s.
+  + simpl in H. apply Sn_le_O in H. apply ex_falso_quodlibet. assumption.
+  + unfold not. intros. rewrite H0 in H. simpl in H. apply Sn_le_O in H.
+    assumption.
+Qed.
+
+Lemma app_star: forall T (s1 s2 : list T) (re : reg_exp T),
+  s1 =~ Star re ->
+  s2 =~ Star re ->
+  s1 ++ s2 =~ Star re.
+Proof.
+  intros T s1 s2 re H1.
+  remember (Star re) as re'.
+  generalize dependent s2.
+  induction H1
+    as [|x'|s1 re1 s2' re2 Hmatch1 IH1 Hmatch2 IH2
+        |s1 re1 re2 Hmatch IH|re1 s2' re2 Hmatch IH
+        |re''|s1 s2' re'' Hmatch1 IH1 Hmatch2 IH2].
+  - (* MEmpty *)  inversion Heqre'.
+  - (* MChar *)   inversion Heqre'.
+  - (* MApp *)    inversion Heqre'.
+  - (* MUnionL *) inversion Heqre'.
+  - (* MUnionR *) inversion Heqre'.
+  - (* MStar0 *)
+    inversion Heqre'. intros s H. apply H.
+  - (* MStarApp *)
+    inversion Heqre'. rewrite H0 in IH2, Hmatch1.
+    intros s2 H1. rewrite <- app_assoc.
+    apply MStarApp.
+    + apply Hmatch1.
+    + apply IH2.
+      * reflexivity.
+      * apply H1.
+Qed.
+
+Lemma weak_pumping : forall T (re : reg_exp T) s,
+  s =~ re ->
+  pumping_constant re <= length s ->
+  exists s1 s2 s3,
+    s = s1 ++ s2 ++ s3 /\
+    s2 <> [] /\
+    forall m, s1 ++ napp m s2 ++ s3 =~ re.
+
+(** You are to fill in the proof. Several of the lemmas about
+    [le] that were in an optional exercise earlier in this chapter
+    may be useful. *)
+Proof.
+  intros T re s Hmatch.
+  induction Hmatch
+    as [ | x | s1 re1 s2 re2 Hmatch1 IH1 Hmatch2 IH2
+       | s1 re1 re2 Hmatch IH | re1 s2 re2 Hmatch IH
+       | re | s1 s2 re Hmatch1 IH1 Hmatch2 IH2 ].
+  - (* MEmpty *)
+    simpl. intros contra. inversion contra.
+  - (* Char *)
+    simpl. intros contra. inversion contra. inversion H1.
+  - (* App *)
+    simpl. rewrite app_length. intros H. apply add_le_cases in H. destruct H as [H1 | H2].
+      + apply IH1 in H1. destruct H1 as [s2' [s3' [s4' [H0 [H1 H2]]]]].
+        exists s2'. exists s3'. exists (s4'++s2). split.
+        * rewrite H0. rewrite <- app_assoc. rewrite <- app_assoc. reflexivity.
+        * split. apply H1.
+          intros.
+          replace (s2' ++ napp m s3' ++ s4' ++ s2) with ((s2' ++ napp m s3' ++ s4') ++ s2).
+          apply (MApp (s2' ++ napp m s3' ++ s4')).
+          apply H2.
+          apply Hmatch2.
+          rewrite <- app_assoc. rewrite <- app_assoc. reflexivity.
+      + apply IH2 in H2. inversion H2 as [s2' [s3' [s4' [H0' [H1' H2']]]]].
+        exists (s1++s2'). exists s3'. exists s4'.
+        split.
+        * rewrite H0'. rewrite <- app_assoc. reflexivity.
+        * split. apply H1'.
+          intros.
+          rewrite <- app_assoc.
+          apply MApp.
+          apply Hmatch1.
+          apply H2'.
+  - (* Union L*)
+    simpl. intros. apply plus_le in H as [H1 H2].
+    apply IH in H1. inversion H1 as [s2' [s3' [s4' [H3 [H4 H5]]]]].
+    exists s2'. exists s3'. exists s4'. split.
+    +  rewrite H3. reflexivity.
+    + split.
+      * apply H4.
+      * intros. apply MUnionL. apply H5.
+  - (* Union R*)
+    simpl. intros. apply plus_le in H as [H1 H2].
+    apply IH in H2. inversion H2 as [s2' [s3' [s4' [H3 [H4 H5]]]]].
+    exists s2'. exists s3'. exists s4'. split.
+    +  rewrite H3. reflexivity.
+    + split.
+      * apply H4.
+      * intros. apply MUnionR. apply H5.
+  - (* Star *)
+    simpl. intros. inversion H. apply pumping_constant_0_false in H2.
+    apply ex_falso_quodlibet. apply H2.
+  - (* Star *)
+    simpl. simpl in IH2. intros. rewrite app_length in H.
+    assert (Ht: 1 <= pumping_constant re).
+    { apply pumping_constant_ge_1. }
+    assert (H1: 1 <= length s1 + length s2).
+    { apply le_trans with (n:= pumping_constant re). apply Ht. apply H. }
+    assert (H2: 1 <= length s1 \/ 1 <= length s2).
+    { apply plus_le_one in H1. apply H1. }
+    destruct H2.
+    + exists []. exists s1. exists s2.
+      split.
+      * reflexivity.
+      * split.
+        (* s1 <> [ ] *)
+        unfold not. intro.
+        assert (H2': length s1 = 0).
+        { rewrite H2. reflexivity. }
+        rewrite H2' in H0. apply Sn_le_O in H0. assumption.
+        (* forall m : nat, [ ] ++ napp m s1 ++ s2 =~ Star re *)
+        intros m. simpl. apply napp_star; assumption.
+    + exists s1. exists s2. exists [].
+      split.
+      * rewrite app_nil_r. reflexivity.
+      * split.
+        (* s2 <> [ ] *)
+        unfold not. intro.
+        assert (H2': length s2 = 0).
+        { rewrite H2. reflexivity. }
+        rewrite H2' in H0. apply Sn_le_O in H0. assumption.
+        (* forall m : nat, s1 ++ napp m s2 ++ [ ] =~ Star re *)
+        intros m. rewrite app_nil_r. 
+        apply app_star. replace s1 with (s1 ++ []). apply MStarApp. apply Hmatch1. 
+        apply MStar0. rewrite app_nil_r. reflexivity.
+        induction m.
+        { simpl. apply MStar0. }
+        { simpl. apply app_star. apply Hmatch2. apply IHm. }
+Qed.
+
+(** **** Exercise: 5 stars, advanced, optional (pumping) 
+
+    Now here is the usual version of the pumping lemma. In addition to
+    requiring that [s2 <> []], it also requires that [length s1 +
+    length s2 <= pumping_constant re]. *)
+
+
+
+Lemma pumping : forall T (re : reg_exp T) s,
+  s =~ re ->
+  pumping_constant re <= length s ->
+  exists s1 s2 s3,
+    s = s1 ++ s2 ++ s3 /\
+    s2 <> [] /\
+    length s1 + length s2 <= pumping_constant re /\
+    forall m, s1 ++ napp m s2 ++ s3 =~ re.
+
+(** You may want to copy your proof of weak_pumping below. *)
+Proof.
+  Admitted.
+
+End Pumping.
+(** [] *)
 
 
 
